@@ -4,7 +4,7 @@
     <title>Country GDP vs Ease of business</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/3.5.6/d3.min.js" charset="utf-8"></script>
     <style>
-        html, body, div, h1 {
+        html, body, div, h1, h2, h3 {
             margin: 0;
             padding: 0;
             border: 0;
@@ -46,16 +46,18 @@
             border-right-style: solid;
             border-right-width: 2px;
         }
-        div#listBlock {
+        div#left {
             float: left;
+        }
+        div#right {
+            float: left;
+            padding-left: 30px;
+        }
+        div#listBlock {
             width: 250px;
         }
         div#listBlock h1 {
             padding-bottom: 10px;
-        }
-        div#vizBlock {
-            float: left;
-            padding-left: 30px;
         }
         circle {
             fill: red;
@@ -64,6 +66,43 @@
         .domain {
             fill: none;
             stroke: #000; 
+        }
+        div#tooltip {
+            background-color: white;
+            border: solid 1px #000;
+            width: auto;
+            height: auto;
+            padding: 10px;
+            padding-top: 5px;
+            padding-bottom: 5px;
+            font-family: calibri;
+            display: none; /* hides the div */
+            position: absolute; /* removes the div from the flow of the HTML */
+        }
+        span#countryName {
+            font-weight: bold;
+        }
+        div#legend {
+            padding: 10px;
+            padding-top: 5px;
+            padding-bottom: 5px;
+            margin-left: 20px;
+            margin-top: 10px;
+            border: dashed 1px #000;
+            display: inline-block;
+        }
+        .countryDetails {
+            display: block;
+        }
+        ul#legendElements {
+            list-style-type: none;
+            margin: 0px;
+        }
+        div#info {
+            height: 35px;
+        }
+        h3#infoHeader {
+            display: none;
         }
     </style>
 	</head>
@@ -80,12 +119,33 @@
             </form>
             <p id="result"></p>
         </div>
-        <div id="listBlock">
-            <h1>Countries</h1>
-            <ul id="list"></ul>
+        <!-- We add a div to be used to display info for the tooltip -->
+        <div id="tooltip" style="top: auto;">
+            <span id="countryName" class="countryDetails">US</span>
+            <span id="countryEOB" class="countryDetails">154</span>
+            <span id="countryGDP" class="countryDetails">5654</span>
         </div>
-        <div id="vizBlock">
-            <svg id="viz"></svg>
+        <div id="left">
+            <div id="listBlock">
+                <h1>Countries</h1>
+                <ul id="list"></ul>
+            </div>
+        </div>
+        <div id="right">
+            <!-- We add some div to be used to display info when we click on the viz elements -->
+            <div id="info">
+                <h3 id="infoHeader">Default</h3>
+            </div>
+            <div id="vizBlock">
+                <svg id="viz"></svg>
+            </div>
+            <div id="legend">
+                <h3 id="legendTitle">Legend:</h3>
+                <ul id="legendElements">
+                    <li>GDP: gross domestic product</li>
+                    <li>EOB: ease of business</li>
+                </ul>
+            </div>
         </div>
         <script type="text/javascript">
             //Load data into global var countries
@@ -194,6 +254,31 @@
                     r: 5,
                     cx: function(d) { return x_scale(d.GDP) },
                     cy: function(d) { return y_scale(d.EOB) },
+                }).on('mouseover', function(d) { //mouseover is when the mouse is over the element; we need 'd' here so we can access the country data (a little unclear on this)
+                    d3.select(this)  //selects the current circle the user is hovering over
+                        .attr("r",10) //changes radius to 10
+                        .style("fill", "orange");
+                    var tooltip = d3.select("#tooltip");
+                    tooltip.select("#countryName").text(d.name);
+                    tooltip.select("#countryEOB").text("EOB:  " + d.EOB);
+                    tooltip.select("#countryGDP").text("GDP:  " + d.GDPstring);
+                    
+                    //style the tooltip to display where the mouse is
+                    tooltip.style("display", "block");
+                    tooltip.style("top", ((d3.event.y) + 10) + "px");	
+                    tooltip.style("left", ((d3.event.x) + 10) + "px");
+                }).on('mouseout', function() { //mouseout is when the mouse stops hovering over the element
+                    d3.select(this)
+                        .attr("r", 5)
+                        .style("fill", "red");
+                    d3.select("#tooltip").style("display", "none");
+                }).on('click', function(d) {
+                    d3.select("#infoHeader")
+                        .text(d.name + ' - GDP: ' + d.GDPstring + ' - EOB: ' + d.EOB).style("display", "block");
+                }).on('contextmenu', function(d, i) { 
+                    d3.event.preventDefault(); //prevents the default context menu from displaying
+                    countries.splice(i,1); //not entirely sure I understand what this part is doing; removing the index?
+                    d3.select(this).remove(); //selects and removes the svg circle
                 });
                  
                 //Append the axis
