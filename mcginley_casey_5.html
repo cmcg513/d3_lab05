@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html>
+	<head>
+    <title>Country GDP vs Ease of business</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/3.5.6/d3.min.js" charset="utf-8"></script>
+    <style>
+        html, body, div, h1 {
+            margin: 0;
+            padding: 0;
+            border: 0;
+            outline: 0;
+            font-family: arial;
+        }
+        div#header {
+            background-color: #191987;
+            padding: 5px;
+        }
+        div#header h1{
+            color: white;
+        }
+        form {
+            display: inline-block;
+        }
+        p#result {
+            display: inline-block;
+            margin: 0;
+            font-weight: bold;
+        }
+        div#search {
+            padding: 5px;
+            padding-top: 30px;
+            padding-bottom: 30px;
+        }
+        button {
+            background-color: #191987;
+            color: white;
+            border: 0;
+        }
+        ul#list {
+            list-style-type: none;
+            margin: 0; 
+            padding: 15px;
+            border-top-style: none;
+            border-bottom-style: none;
+            border-left-style: none;
+            border-right-style: solid;
+            border-right-width: 2px;
+        }
+        div#listBlock {
+            float: left;
+            width: 250px;
+        }
+        div#listBlock h1 {
+            padding-bottom: 10px;
+        }
+        div#vizBlock {
+            float: left;
+            padding-left: 30px;
+        }
+        circle {
+            fill: red;
+            opacity: 0.5;
+        }
+        .domain {
+            fill: none;
+            stroke: #000; 
+        }
+    </style>
+	</head>
+
+	<body>
+        <div id="header">
+            <h1> Country GDP vs Ease of business </h1>
+        </div>
+        <div id="search">
+            <form>
+                Search: 
+                <input type="text" id="country" onkeypress="javascript:return ((event.keyCode == 13) ? false : true)">
+                <button type="button" onclick="getCountry()"> GO </button> GDP: 
+            </form>
+            <p id="result"></p>
+        </div>
+        <div id="listBlock">
+            <h1>Countries</h1>
+            <ul id="list"></ul>
+        </div>
+        <div id="vizBlock">
+            <svg id="viz"></svg>
+        </div>
+        <script type="text/javascript">
+            //Load data into global var countries
+            var countries;
+            
+            d3.csv("data.csv", function(data) {
+                countries = load(data);
+                listCountries(countries);
+                createViz(countries);
+            });
+            
+            function load(data) {
+                var mappedData = data.map(function(d) {
+                    //Map the data
+                    return {
+                        name: d.Country,
+                        GDP: +d['GDP per Capita'].replace("$","").replace(",",""),
+                        GDPstring: d['GDP per Capita'],
+                        Year: new Date(d.Year).getYear() + 1900,
+                        EOB: +d['Ease of Business']
+                    }
+                });
+                
+                //Filter the data for the year 2012 only
+                mappedData = mappedData.filter(function(d) {
+                    return d.Year == 2012;
+                })
+                
+                //Sort in ascending order
+                mappedData = mappedData.sort(function(a,b) {
+                    return d3.ascending(a.name, b.name);
+                });
+                return mappedData;
+            }
+
+            //Identify the GDP for a given country
+            function findGDP(name) {
+                country = countries.filter(function(c) {
+                    return c.name == name;
+                });
+                console.log(country);
+
+                return (country.length == 1) ? (name + ": " + country[0].GDPstring) : "NA";
+            }
+
+            //Add GDP as text to HTML
+            function getCountry() {
+                var country = d3.select("input#country").property("value")
+                console.log(country)
+                var gdp = findGDP(country)
+                d3.select("p#result").text(gdp)
+            }
+            
+            //List out the countries
+            function listCountries(countries) {
+                var list = d3.select("#list").selectAll("li").data(countries, function(c) {
+                    return c.name; 
+                }); 
+                list.enter().append("li").text(function(c) { 
+                    return c.name; 
+                });  
+            }
+            
+            //Visualize GDP against Ease of Business
+            function createViz(countries) {
+                //Set dimensions of the viz
+                d3.select("#viz").attr("width", 700);
+                d3.select("#viz").attr("height", 500);
+                
+                //Establish X scale
+                var x_scale = d3.scale.linear();
+                x_scale.range([40, 690]);
+                x_scale.domain([0, d3.max(countries, function(c) { return c.GDP; })]);
+                
+                //Establish Y scale
+                var y_scale = d3.scale.linear();
+                y_scale.range([10, 480]);
+                y_scale.domain([d3.max(countries, function(c) { return c.EOB; }), 0]); //svg grows from the top-left
+                
+                //Establish X axis
+                var x_axis = d3.svg.axis(); 
+                x_axis.scale(x_scale);
+                x_axis.orient("bottom");
+                
+                //Format the tick elements
+                x_axis.tickFormat(function(d) { 
+                    var s = "";
+                    if (d > 1000) {
+                        s = d/1000 + "k";
+                    } else {
+                        s = s + d;
+                    }
+                    return "$" + s;
+                });
+                
+                //Establish Y axis
+                var y_axis = d3.svg.axis();
+                y_axis.scale(y_scale);
+                y_axis.orient("left");
+                
+                //Select viz tag
+                var viz = d3.select("#viz").selectAll("circle").data(countries, function(c) { 
+                    return c.name; 
+                }); 
+                viz.enter().append("circle").attr({
+                    r: 5,
+                    cx: function(d) { return x_scale(d.GDP) },
+                    cy: function(d) { return y_scale(d.EOB) },
+                });
+                 
+                //Append the axis
+                d3.select("#viz")
+                    .append("g")
+                    .attr("transform", "translate(0,480)")
+                    .call(x_axis);
+                d3.select("#viz")
+                    .append("g")
+                    .attr("transform", "translate(40,0)")
+                    .call(y_axis);
+            }
+
+        </script>
+	</body>
+</html>
